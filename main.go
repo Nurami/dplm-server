@@ -2,18 +2,21 @@ package main
 
 import (
 	"bufio"
-	"fmt"
+	"database/sql"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/Workiva/go-datastructures/queue"
+	_ "github.com/lib/pq"
 )
 
 var (
 	queueOfMessagesFromAgent = queue.New(10)
 	queueOfDataToDB          *queue.Queue
+	db                       *sql.DB
 )
 
 type logInfo struct {
@@ -41,6 +44,7 @@ func logsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func processData() {
+	db := connectToDB()
 	for {
 		data, err := queueOfMessagesFromAgent.Get(1)
 		//TODO: обработка ошибки
@@ -49,7 +53,7 @@ func processData() {
 		scanner := bufio.NewScanner(strings.NewReader(string(data[0].([]byte))))
 		for scanner.Scan() {
 			logInfo := getLogInfoFromString(scanner.Text())
-			fmt.Println(logInfo)
+			writeToDBlogInfo(db, logInfo)
 		}
 	}
 }
@@ -74,6 +78,20 @@ func getLogInfoFromString(log string) logInfo {
 	return logInfo
 }
 
-func writeToDB() {}
+func writeToDBlogInfo(db *sql.DB, logInfo logInfo) {
+	_, err := db.Exec("INSERT INTO log(agent_id, time, function, level, id, message) VALUES ($1, $2, $3, $4, $5, $6)", logInfo.agentID, logInfo.time, logInfo.function, logInfo.level, logInfo.id, logInfo.message)
+	//TODO: обработать ошибку
+	if err != nil {
+		panic(err)
+	}
+}
 
-func initDB() {}
+func connectToDB() *sql.DB {
+	connStr := "user=postgres password=postgres dbname=carwashing sslmode=disable host=localhost port=5432"
+	db, err := sql.Open("postgres", connStr)
+	//TODO: обработать ошибку
+	if err != nil {
+		log.Fatal(err)
+	}
+	return db
+}
