@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Workiva/go-datastructures/queue"
 )
@@ -17,7 +18,7 @@ var (
 
 type logInfo struct {
 	agentID  string
-	time     string
+	time     time.Time
 	function string
 	level    string
 	id       string
@@ -56,12 +57,18 @@ func processData() {
 func getLogInfoFromString(log string) logInfo {
 	data := strings.Split(log, " ")
 	message := strings.Join(data[5:], " ")
+	timeString := strings.Join(data[1:3], " ")
+	t, err := time.Parse("2006-01-02 15:04:05", timeString)
+	//TODO: обработать ошибку
+	if err != nil {
+
+	}
 	logInfo := logInfo{
 		data[0],
-		data[1],
-		data[2],
+		t,
 		data[3],
 		data[4],
+		data[5],
 		message,
 	}
 	return logInfo
