@@ -15,6 +15,15 @@ var (
 	queueOfDataToDB          *queue.Queue
 )
 
+type logInfo struct {
+	agentID  string
+	time     string
+	function string
+	level    string
+	id       string
+	message  string
+}
+
 func main() {
 	go processData()
 	http.HandleFunc("/logs", logsHandler)
@@ -37,8 +46,23 @@ func processData() {
 	}
 	scanner := bufio.NewScanner(strings.NewReader(string(data[0].([]byte))))
 	for scanner.Scan() {
-		fmt.Println(scanner.Text())
+		logInfo := getLogInfoFromString(scanner.Text())
+		fmt.Println(logInfo)
 	}
+}
+
+func getLogInfoFromString(log string) logInfo {
+	data := strings.Split(log, " ")
+	message := strings.Join(data[5:], " ")
+	logInfo := logInfo{
+		data[0],
+		data[1],
+		data[2],
+		data[3],
+		data[4],
+		message,
+	}
+	return logInfo
 }
 
 func writeToDB() {}
