@@ -40,14 +40,16 @@ func logsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func processData() {
-	data, err := queueOfMessagesFromAgent.Get(1)
-	//TODO: обработка ошибки
-	if err != nil {
-	}
-	scanner := bufio.NewScanner(strings.NewReader(string(data[0].([]byte))))
-	for scanner.Scan() {
-		logInfo := getLogInfoFromString(scanner.Text())
-		fmt.Println(logInfo)
+	for {
+		data, err := queueOfMessagesFromAgent.Get(1)
+		//TODO: обработка ошибки
+		if err != nil {
+		}
+		scanner := bufio.NewScanner(strings.NewReader(string(data[0].([]byte))))
+		for scanner.Scan() {
+			logInfo := getLogInfoFromString(scanner.Text())
+			fmt.Println(logInfo)
+		}
 	}
 }
 
