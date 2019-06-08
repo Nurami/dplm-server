@@ -1,2 +1,3 @@
 create database carwashing;
-create table log (id text PRIMARY KEY, agent_id varchar(100), time timestamp, function varchar(100), level varchar(20), message text); 
+create table log (id text PRIMARY KEY, agent_id varchar(100), time timestamp, function varchar(100), level varchar(20), message text, device_id varchar(100));
+create table device (id text PRIMARY KEY, name varchar(100)); 
