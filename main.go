@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Workiva/go-datastructures/queue"
+	"github.com/alecthomas/template"
 	_ "github.com/lib/pq"
 )
 
@@ -28,10 +29,31 @@ type logInfo struct {
 	message  string
 }
 
+type ReportOptions struct {
+	Levels     []string
+	Types     []string
+	AgentsIDs []string
+}
+
 func main() {
+	connectToDB()
 	go processData()
 	http.HandleFunc("/logs", logsHandler)
+	http.HandleFunc("/report", reportHandler)
 	panic(http.ListenAndServe(":8080", nil))
+}
+
+func reportHandler(w http.ResponseWriter, r *http.Request) {
+	tmpl, err := template.ParseFiles("template/report.html")
+	if err != nil {
+		panic(err)
+	}
+	repOpt := ReportOptions{
+		getLogsLevels(),
+		nil,
+		getAgentsIDs(),
+	}
+	tmpl.Execute(w, repOpt)
 }
 
 func logsHandler(w http.ResponseWriter, r *http.Request) {
@@ -43,8 +65,8 @@ func logsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("succes"))
 }
 
+//TODO: отчет по логам
 func processData() {
-	db := connectToDB()
 	for {
 		data, err := queueOfMessagesFromAgent.Get(1)
 		//TODO: обработка ошибки
@@ -86,12 +108,55 @@ func writeToDBlogInfo(db *sql.DB, logInfo logInfo) {
 	}
 }
 
-func connectToDB() *sql.DB {
+func connectToDB() {
 	connStr := "user=postgres password=postgres dbname=carwashing sslmode=disable host=localhost port=5432"
-	db, err := sql.Open("postgres", connStr)
+	dataBase, err := sql.Open("postgres", connStr)
 	//TODO: обработать ошибку
 	if err != nil {
 		log.Fatal(err)
 	}
-	return db
+	db = dataBase
+
+}
+
+func getAgentsIDs() []string {
+	rows, err := db.Query("SELECT DISTINCT agent_id FROM log")
+	if err != nil {
+		panic(err)
+	}
+	result := make([]string, 0)
+	for rows.Next() {
+		tmp := ""
+		err = rows.Scan(&tmp)
+		result = append(result, tmp)
+	}
+	return result
+}
+
+func getDevicesIDs() []string {
+	rows, err := db.Query("SELECT DISTINCT device_id FROM log")
+	if err != nil {
+		panic(err)
+	}
+	result := make([]string, 0)
+	for rows.Next() {
+		tmp := ""
+		err = rows.Scan(&tmp)
+		result = append(result, tmp)
+	}
+	return result
+}
+
+func getLogsLevels() []string {
+	rows, err := db.Query("SELECT DISTINCT level FROM log")
+	if err != nil {
+		panic(err)
+	}
+	result := make([]string, 0)
+	for rows.Next() {
+		tmp := ""
+		err = rows.Scan(&tmp)
+		result = append(result, tmp)
+	}
+	return result
 }

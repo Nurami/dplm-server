@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<p>Устройство:</p>
+<select>
+    {{range .Types}}
+        <option>{{.}}</option>
+    {{end}}
+</select>
+<p>Номер агента</p>
+<select>
+    {{range .AgentsIDs}}
+        <option>{{.}}</option>
+    {{end}}
+</select>
+<p>Уровень логирования</p>
+<select>
+    {{range .Levels}}
+        <option>{{.}}</option>
+    {{end}}
+</select>
+<p>Дата</p>
+От
+<input type="datetime-local">
+До
+<input type="datetime-local">
