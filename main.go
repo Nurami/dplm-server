@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,10 +28,11 @@ type logInfo struct {
 	level    string
 	id       string
 	message  string
+	deviceID string
 }
 
 type ReportOptions struct {
-	Levels     []string
+	Levels    []string
 	Types     []string
 	AgentsIDs []string
 }
@@ -50,7 +52,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	repOpt := ReportOptions{
 		getLogsLevels(),
-		nil,
+		getDevicesNames(),
 		getAgentsIDs(),
 	}
 	tmpl.Execute(w, repOpt)
@@ -82,7 +84,16 @@ func processData() {
 
 func getLogInfoFromString(log string) logInfo {
 	data := strings.Split(log, " ")
-	message := strings.Join(data[5:], " ")
+	_, err := strconv.Atoi(data[len(data)-1])
+	var message string
+	var deviceID string
+	if err != nil {
+		message = strings.Join(data[5:], " ")
+		deviceID = ""
+	} else {
+		message = strings.Join(data[5:len(data)-2], " ")
+		deviceID = data[len(data)-1]
+	}
 	timeString := strings.Join(data[1:3], " ")
 	t, err := time.Parse("2006-01-02 15:04:05", timeString)
 	//TODO: обработать ошибку
@@ -96,12 +107,13 @@ func getLogInfoFromString(log string) logInfo {
 		data[4],
 		data[5],
 		message,
+		deviceID,
 	}
 	return logInfo
 }
 
 func writeToDBlogInfo(db *sql.DB, logInfo logInfo) {
-	_, err := db.Exec("INSERT INTO log(agent_id, time, function, level, id, message) VALUES ($1, $2, $3, $4, $5, $6)", logInfo.agentID, logInfo.time, logInfo.function, logInfo.level, logInfo.id, logInfo.message)
+	_, err := db.Exec("INSERT INTO log(agent_id, time, function, level, id, message, device_id) VALUES ($1, $2, $3, $4, $5, $6, $7)", logInfo.agentID, logInfo.time, logInfo.function, logInfo.level, logInfo.id, logInfo.message, logInfo.deviceID)
 	//TODO: обработать ошибку
 	if err != nil {
 		panic(err)
@@ -133,8 +145,8 @@ func getAgentsIDs() []string {
 	return result
 }
 
-func getDevicesIDs() []string {
-	rows, err := db.Query("SELECT DISTINCT device_id FROM log")
+func getDevicesNames() []string {
+	rows, err := db.Query("SELECT DISTINCT device.name FROM log INNER JOIN device ON log.device_id=device.id")
 	if err != nil {
 		panic(err)
 	}
