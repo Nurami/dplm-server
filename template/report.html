@@ -1,24 +1,27 @@
 <!DOCTYPE html>
+<form action="result" method="GET">
 <p>Устройство:</p>
-<select>
+<select name="types">
     {{range .Types}}
         <option>{{.}}</option>
     {{end}}
 </select>
 <p>Номер агента</p>
-<select>
+<select name="agentsIDs">
     {{range .AgentsIDs}}
         <option>{{.}}</option>
     {{end}}
 </select>
 <p>Уровень логирования</p>
-<select>
+<select name="levels">
     {{range .Levels}}
         <option>{{.}}</option>
     {{end}}
 </select>
 <p>Дата</p>
 От
-<input type="datetime-local">
+<input type="datetime-local" name="dateFirst">
 До
-<input type="datetime-local">
+<input type="datetime-local" name="dateSecond">
+<input type="submit">
+</form>
