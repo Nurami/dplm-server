@@ -1,27 +1,81 @@
 <!DOCTYPE html>
-<form action="result" method="GET">
-<p>Устройство:</p>
-<select name="types">
-    {{range .Types}}
-        <option>{{.}}</option>
-    {{end}}
-</select>
-<p>Номер агента</p>
-<select name="agentsIDs">
-    {{range .AgentsIDs}}
-        <option>{{.}}</option>
-    {{end}}
-</select>
-<p>Уровень логирования</p>
-<select name="levels">
-    {{range .Levels}}
-        <option>{{.}}</option>
-    {{end}}
-</select>
-<p>Дата</p>
-От
-<input type="datetime-local" name="dateFirst">
-До
-<input type="datetime-local" name="dateSecond">
-<input type="submit">
-</form>
+
+<head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+</head>
+<div class="m-sm-1">
+    <div class="row">
+        <div class="col-3">
+            <form action="result" method="GET">
+                <b>Устройство:</b>
+                <select class="form-control form-control-sm my-md-2" name="types">
+                    {{range .Types}}
+                    <option>{{.}}</option>
+                    {{end}}
+                </select>
+                <b>Номер агента:</b>
+                <select class="form-control form-control-sm my-md-2" name="agentsIDs">
+                    {{range .AgentsIDs}}
+                    <option>{{.}}</option>
+                    {{end}}
+                </select>
+                <b>Уровень логирования:</b>
+                <select class="form-control form-control-sm my-md-2" name="levels">
+                    {{range .Levels}}
+                    <option>{{.}}</option>
+                    {{end}}
+                </select>
+                <b>Период деятельности:</b>
+                <br>
+                <div class="form-row my-md-2">
+                    <div class="col-5"><i>Дата начала:</i></div>
+                    <div class="col-7"><input type="datetime-local" class="form-control form-control-sm"
+                            name="dateFirst"></div>
+                </div>
+                <div class="form-row my-md-2">
+                        <div class="col-5"><i>Дата конца:</i></div>
+                        <div class="col-7"><input type="datetime-local" class="form-control form-control-sm"
+                                name="dateЫусщтв"></div>
+                    </div>
+                <div class="text-right">
+                    <input type="submit" class="btn btn-primary mb-2 my-md-1">
+                </div>
+            </form>
+        </div>
+        <div class="col-9">
+            <table class="table">
+                <thead class="thead-light">
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Номер агента</th>
+                        <th scope="col">Устройство</th>
+                        <th scope="col">Уровень логирования</th>
+                        <th scope="col">Дата</th>
+                        <th scope="col">Сообщение</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row">1</th>
+                        <td>Mark</td>
+                        <td>Otto</td>
+                        <td>@mdo</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">2</th>
+                        <td>Jacob</td>
+                        <td>Thornton</td>
+                        <td>@fat</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">3</th>
+                        <td>Larry</td>
+                        <td>the Bird</td>
+                        <td>@twitter</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
