@@ -6,21 +6,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Workiva/go-datastructures/queue"
 	"github.com/alecthomas/template"
 	_ "github.com/lib/pq"
+	"github.com/op/go-logging"
 )
 
 var (
 	queueOfMessagesFromAgent = queue.New(10)
 	queueOfDataToDB          *queue.Queue
 	db                       *sql.DB
+	log                      = logging.MustGetLogger("logger")
+	logsFormat               = logging.MustStringFormatter(`%{time:2006-01-02 15:04:05} %{shortfunc} %{level:s} %{id:d} %{message}`)
+	mutex                    = &sync.Mutex{}
 )
 
 type logInfo struct {
@@ -56,18 +61,23 @@ type ReportOptions struct {
 }
 
 func main() {
+	go logToNewFileByPeriod(10)
+	time.Sleep(time.Second)
+
 	connectToDB()
+
 	go processData()
+
 	http.HandleFunc("/logs", logsHandler)
 	http.HandleFunc("/report", reportHandler)
 	http.HandleFunc("/data", dataHandler)
-	panic(http.ListenAndServe(":8080", nil))
+	log.Panic(http.ListenAndServe(":8080", nil))
 }
 
 func reportHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl, err := template.ParseFiles("template/report.html")
 	if err != nil {
-		panic(err)
+		log.Error(err)
 	}
 	repOpt := ReportOptions{
 		getLogsLevels(),
@@ -80,12 +90,12 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 func dataHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Error(err)
 	}
 	clRe := clientRequest{}
 	err = json.Unmarshal(body, &clRe)
 	if err != nil {
-		fmt.Println(err)
+		log.Error(err)
 	}
 	w.Write(getResultLogInfos(clRe))
 }
@@ -93,18 +103,17 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 func logsHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		panic(err)
+		log.Error(err)
 	}
 	queueOfMessagesFromAgent.Put(body)
-	w.Write([]byte("succes"))
+	w.Write([]byte("Succes"))
 }
 
-//TODO: отчет по логам
 func processData() {
 	for {
 		data, err := queueOfMessagesFromAgent.Get(1)
-		//TODO: обработка ошибки
 		if err != nil {
+			log.Error(err)
 		}
 		scanner := bufio.NewScanner(strings.NewReader(string(data[0].([]byte))))
 		for scanner.Scan() {
@@ -114,8 +123,8 @@ func processData() {
 	}
 }
 
-func getLogInfoFromString(log string) logInfo {
-	data := strings.Split(log, " ")
+func getLogInfoFromString(currentLog string) logInfo {
+	data := strings.Split(currentLog, " ")
 	_, err := strconv.Atoi(data[len(data)-1])
 	var message string
 	var deviceID string
@@ -128,9 +137,8 @@ func getLogInfoFromString(log string) logInfo {
 	}
 	timeString := strings.Join(data[1:3], " ")
 	t, err := time.Parse("2006-01-02 15:04:05", timeString)
-	//TODO: обработать ошибку
 	if err != nil {
-
+		log.Error(err)
 	}
 	logInfo := logInfo{
 		data[0],
@@ -146,9 +154,8 @@ func getLogInfoFromString(log string) logInfo {
 
 func writeToDBlogInfo(db *sql.DB, logInfo logInfo) {
 	_, err := db.Exec("INSERT INTO log(agent_id, time, function, level, id, message, device_id) VALUES ($1, $2, $3, $4, $5, $6, $7)", logInfo.agentID, logInfo.time, logInfo.function, logInfo.level, logInfo.id, logInfo.message, logInfo.deviceID)
-	//TODO: обработать ошибку
 	if err != nil {
-		panic(err)
+		log.Error(err)
 	}
 }
 
@@ -157,29 +164,29 @@ func getResultLogInfos(clRe clientRequest) []byte {
 	tmp2 := strings.Replace(clRe.SecondDate, "T", " ", -1)
 	firstTime, err := time.Parse("2006-01-02 15:04", tmp1)
 	if err != nil {
-		fmt.Println(err)
+		log.Error(err)
 	}
 	secondTime, err := time.Parse("2006-01-02 15:04", tmp2)
 	if err != nil {
-		fmt.Println(err)
+		log.Error(err)
 	}
 	fmt.Println(firstTime, secondTime)
 	rows, err := db.Query("SELECT log.agent_id, log.level, log.time, log.message, device.name FROM log INNER JOIN device ON device.name=$1 WHERE (log.time BETWEEN $2 AND $3) AND log.level=$4 AND log.agent_id=$5", clRe.DeviceType, firstTime, secondTime, clRe.Level, clRe.AgentID)
 	if err != nil {
-		fmt.Println(err)
+		log.Error(err)
 	}
 	resultInfos := make([]resultInfo, 0)
 	for rows.Next() {
 		tmp := resultInfo{}
 		err = rows.Scan(&tmp.AgentID, &tmp.Level, &tmp.Time, &tmp.Message, &tmp.Name)
 		if err != nil {
-			fmt.Println(err)
+			log.Error(err)
 		}
 		resultInfos = append(resultInfos, tmp)
 	}
 	result, err := json.Marshal(resultInfos)
 	if err != nil {
-		fmt.Println(err)
+		log.Error(err)
 	}
 	return result
 
@@ -188,9 +195,8 @@ func getResultLogInfos(clRe clientRequest) []byte {
 func connectToDB() {
 	connStr := "user=postgres password=postgres dbname=carwashing sslmode=disable host=localhost port=5432"
 	dataBase, err := sql.Open("postgres", connStr)
-	//TODO: обработать ошибку
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	db = dataBase
 
@@ -199,12 +205,15 @@ func connectToDB() {
 func getAgentsIDs() []string {
 	rows, err := db.Query("SELECT DISTINCT agent_id FROM log")
 	if err != nil {
-		panic(err)
+		log.Error(err)
 	}
 	result := make([]string, 0)
 	for rows.Next() {
 		tmp := ""
 		err = rows.Scan(&tmp)
+		if err != nil {
+			log.Error(err)
+		}
 		result = append(result, tmp)
 	}
 	return result
@@ -213,12 +222,15 @@ func getAgentsIDs() []string {
 func getDevicesNames() []string {
 	rows, err := db.Query("SELECT DISTINCT device.name FROM log INNER JOIN device ON log.device_id=device.id")
 	if err != nil {
-		panic(err)
+		log.Error(err)
 	}
 	result := make([]string, 0)
 	for rows.Next() {
 		tmp := ""
 		err = rows.Scan(&tmp)
+		if err != nil {
+			log.Error(err)
+		}
 		result = append(result, tmp)
 	}
 	return result
@@ -227,13 +239,40 @@ func getDevicesNames() []string {
 func getLogsLevels() []string {
 	rows, err := db.Query("SELECT DISTINCT level FROM log")
 	if err != nil {
-		panic(err)
+		log.Error(err)
 	}
 	result := make([]string, 0)
 	for rows.Next() {
 		tmp := ""
 		err = rows.Scan(&tmp)
+		if err != nil {
+			log.Error(err)
+		}
 		result = append(result, tmp)
 	}
 	return result
+}
+
+func logToNewFileByPeriod(period int) {
+	if _, err := os.Stat("logs"); os.IsNotExist(err) {
+		os.Mkdir("logs", 0755)
+	}
+	for {
+		logsName := "logs/" + time.Now().Format("2006.01.02-15.04.05") + ".log"
+		file, err := os.Create(logsName)
+		mutex.Lock()
+		log = logging.MustGetLogger(logsName)
+		var backend *logging.LogBackend
+		if err != nil {
+			fmt.Println(time.Now(), " ", err)
+			backend = logging.NewLogBackend(os.Stdout, "", 0)
+		} else {
+			backend = logging.NewLogBackend(file, "", 0)
+		}
+		backendFormatter := logging.NewBackendFormatter(backend, logsFormat)
+		logging.SetBackend(backendFormatter)
+		mutex.Unlock()
+		time.Sleep(time.Duration(period) * time.Second)
+		file.Close()
+	}
 }
