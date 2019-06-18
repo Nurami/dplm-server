@@ -9,19 +9,19 @@
         <div class="col-3">
             <form action="result" method="GET">
                 <b>Устройство:</b>
-                <select class="form-control form-control-sm my-md-2" name="types">
+                <select class="form-control form-control-sm my-md-2" id="types">
                     {{range .Types}}
                     <option>{{.}}</option>
                     {{end}}
                 </select>
                 <b>Номер агента:</b>
-                <select class="form-control form-control-sm my-md-2" name="agentsIDs">
+                <select class="form-control form-control-sm my-md-2" id="agentsIDs">
                     {{range .AgentsIDs}}
                     <option>{{.}}</option>
                     {{end}}
                 </select>
                 <b>Уровень логирования:</b>
-                <select class="form-control form-control-sm my-md-2" name="levels">
+                <select class="form-control form-control-sm my-md-2" id="levels">
                     {{range .Levels}}
                     <option>{{.}}</option>
                     {{end}}
@@ -30,52 +30,75 @@
                 <br>
                 <div class="form-row my-md-2">
                     <div class="col-5"><i>Дата начала:</i></div>
-                    <div class="col-7"><input type="datetime-local" class="form-control form-control-sm"
-                            name="dateFirst"></div>
+                    <div class="col-7"><input type="datetime-local" class="form-control form-control-sm" id="dateFirst">
+                    </div>
                 </div>
                 <div class="form-row my-md-2">
-                        <div class="col-5"><i>Дата конца:</i></div>
-                        <div class="col-7"><input type="datetime-local" class="form-control form-control-sm"
-                                name="dateЫусщтв"></div>
-                    </div>
+                    <div class="col-5"><i>Дата конца:</i></div>
+                    <div class="col-7"><input type="datetime-local" class="form-control form-control-sm"
+                            id="dateSecond"></div>
+                </div>
                 <div class="text-right">
-                    <input type="submit" class="btn btn-primary mb-2 my-md-1">
+                    <input type="button" onclick="send()" class="btn btn-primary mb-2 my-md-1" value="Сформировать отчет">
                 </div>
             </form>
         </div>
-        <div class="col-9">
-            <table class="table">
-                <thead class="thead-light">
-                    <tr>
-                        <th scope="col">#</th>
-                        <th scope="col">Номер агента</th>
-                        <th scope="col">Устройство</th>
-                        <th scope="col">Уровень логирования</th>
-                        <th scope="col">Дата</th>
-                        <th scope="col">Сообщение</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <th scope="row">1</th>
-                        <td>Mark</td>
-                        <td>Otto</td>
-                        <td>@mdo</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">2</th>
-                        <td>Jacob</td>
-                        <td>Thornton</td>
-                        <td>@fat</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">3</th>
-                        <td>Larry</td>
-                        <td>the Bird</td>
-                        <td>@twitter</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <div class="col-9" style="visibility:hidden" id="div1">
+                <table class="table" id="table2">
+                    <thead class="thead-light">
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Номер агента</th>
+                            <th scope="col">Устройство</th>
+                            <th scope="col">Уровень логирования</th>
+                            <th scope="col">Дата</th>
+                            <th scope="col">Сообщение</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody2">
+                    </tbody>
+                </table>
+            </div>
     </div>
 </div>
+<script>
+    function send() {
+        var e = document.getElementById("types");
+        var selectedType = e.options[e.selectedIndex].text;
+        e = document.getElementById("agentsIDs");
+        var selecteAgentID = e.options[e.selectedIndex].text;
+        e = document.getElementById("levels");
+        var selectedLevel = e.options[e.selectedIndex].text;
+        var selectedFirstDate = document.getElementById("dateFirst").value;
+        var selectedSecondDate = document.getElementById("dateSecond").value;
+        var result = {
+            deviceType: selectedType,
+            agentID: selecteAgentID,
+            level: selectedLevel,
+            firstDate: selectedFirstDate,
+            secondDate: selectedSecondDate
+        };
+        var resultJSON = JSON.stringify(result)
+        var data = sendRequest(resultJSON);
+        changeTable(data)
+    }
+    function sendRequest(data){
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'http://localhost:8080/data', false);
+        xhr.send(data);
+        if (xhr.status != 200) {
+            console.log( xhr.status + ': ' + xhr.statusText );
+        } else {
+            return xhr.responseText;
+        }
+    }
+    function changeTable(data){
+        var dataJSON = JSON.parse(data)
+        var HTML = ""
+        for (j=0; j<dataJSON.length; j++){
+            HTML+="<tr><th scope=\"row\">"+(j+1)+"</th><td>"+dataJSON[j].agentID+"</td><td>"+dataJSON[j].name+"</td><td>"+dataJSON[j].level+"</td><td>"+dataJSON[j].time+"</td><td>"+dataJSON[j].message+"</td></tr>"
+        }
+        document.getElementById("tbody2").innerHTML = HTML
+        document.getElementById("div1").style.visibility="visible"
+    }
+</script>
