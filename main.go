@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -31,6 +33,22 @@ type logInfo struct {
 	deviceID string
 }
 
+type resultInfo struct {
+	AgentID string `json:"agentID"`
+	Level   string `json:"level"`
+	Time    string `json:"time"`
+	Message string `json:"message"`
+	Name    string `json:"name"`
+}
+
+type clientRequest struct {
+	AgentID    string `json:"agentID"`
+	FirstDate  string `json:"firstDate"`
+	SecondDate string `json:"secondDate"`
+	Level      string `json:"level"`
+	DeviceType string `json:"deviceType"`
+}
+
 type ReportOptions struct {
 	Levels    []string
 	Types     []string
@@ -42,6 +60,7 @@ func main() {
 	go processData()
 	http.HandleFunc("/logs", logsHandler)
 	http.HandleFunc("/report", reportHandler)
+	http.HandleFunc("/data", dataHandler)
 	panic(http.ListenAndServe(":8080", nil))
 }
 
@@ -56,6 +75,19 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		getAgentsIDs(),
 	}
 	tmpl.Execute(w, repOpt)
+}
+
+func dataHandler(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Println(err)
+	}
+	clRe := clientRequest{}
+	err = json.Unmarshal(body, &clRe)
+	if err != nil {
+		fmt.Println(err)
+	}
+	w.Write(getResultLogInfos(clRe))
 }
 
 func logsHandler(w http.ResponseWriter, r *http.Request) {
@@ -118,6 +150,39 @@ func writeToDBlogInfo(db *sql.DB, logInfo logInfo) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func getResultLogInfos(clRe clientRequest) []byte {
+	tmp1 := strings.Replace(clRe.FirstDate, "T", " ", -1)
+	tmp2 := strings.Replace(clRe.SecondDate, "T", " ", -1)
+	firstTime, err := time.Parse("2006-01-02 15:04", tmp1)
+	if err != nil {
+		fmt.Println(err)
+	}
+	secondTime, err := time.Parse("2006-01-02 15:04", tmp2)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(firstTime, secondTime)
+	rows, err := db.Query("SELECT log.agent_id, log.level, log.time, log.message, device.name FROM log INNER JOIN device ON device.name=$1 WHERE (log.time BETWEEN $2 AND $3) AND log.level=$4 AND log.agent_id=$5", clRe.DeviceType, firstTime, secondTime, clRe.Level, clRe.AgentID)
+	if err != nil {
+		fmt.Println(err)
+	}
+	resultInfos := make([]resultInfo, 0)
+	for rows.Next() {
+		tmp := resultInfo{}
+		err = rows.Scan(&tmp.AgentID, &tmp.Level, &tmp.Time, &tmp.Message, &tmp.Name)
+		if err != nil {
+			fmt.Println(err)
+		}
+		resultInfos = append(resultInfos, tmp)
+	}
+	result, err := json.Marshal(resultInfos)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return result
+
 }
 
 func connectToDB() {
